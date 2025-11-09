@@ -1,0 +1,1465 @@
+\documentclass[11pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{mathtools}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{titlesec}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+
+\usepackage{listings} % kept in case you want to re-enable listings later
+\usepackage{float}
+\usepackage{microtype}
+
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  citecolor=blue,
+  urlcolor=blue
+}
+
+% ---------- Document ----------
+\title{\Huge\textbf{HW1: MLP,Classification , Visualization,MSE,Algorithms,....}}
+\author{Prepared by: \texttt{MohammadAmin HorriFarahani -> S.ID = 40216673} }
+%\author{Prepared by: \texttt{S.ID = 40216673} }
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+A concise, hands-on study of neural models and their MATLAB implementations is presented. Vectorized forward and backward passes are derived for a single-hidden-layer MLP using the \texttt{tanh} activation and MSE loss. Several optimization methods, including gradient descent, Newton/Gauss--Newton, and Levenberg--Marquardt, are compared with respect to convergence and stability. The influence of feature scaling and preprocessing is examined, alongside a detailed 2--3--2--1 network example for forward and backpropagation. Logistic regression and shallow neural network classifiers are analyzed through exploratory data visualization on the \texttt{Social\_Network\_Ads.csv} dataset, and minimal RNN/LSTM concepts are outlined for temporal modeling. Reproducible MATLAB scripts and plotted results accompany the analytical study.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+\vspace{1cm} 
+\begin{center}
+\textbf{\Large Section 1}
+\end{center}
+
+
+
+\section{Section 1}
+
+\subsection{\textcolor{red}{Problem statement and requirements}}
+You are given a regression dataset $\{(\mathbf{x}^{(i)}, y^{(i)})\}_{i=1}^N$ with input vectors $\mathbf{x}\in\mathbb{R}^d$ and scalar targets $y\in\mathbb{R}$. Some features may have disparate scales (the original theoretical prompt emphasizes feature-scaling --- but the minimal implementation below omits scaling per explicit user request).
+
+A fully connected MLP with one hidden layer of $m$ $\tanh$ units and scalar output is used. The network equations (single example) are:
+\[
+\begin{aligned}
+\mathbf{h} &= \phi\!\big(W^{(1)}\mathbf{x} + \mathbf{b}^{(1)}\big), \quad \phi=\tanh,\\
+\hat{y} &= {w^{(2)}}^\top \mathbf{h} + b^{(2)}.
+\end{aligned}
+\]
+The loss over the dataset is the mean squared error (MSE):
+\[
+L = \frac{1}{2N}\sum_{i=1}^N \big(\hat y^{(i)} - y^{(i)}\big)^2.
+\]
+
+\textbf{Goal:} derive compact vector/matrix expressions for the gradients and implement them in MATLAB in a minimal, clean script that performs forward pass, MSE loss, and vectorized backpropagation. The MATLAB implementation must be minimal (no extra helpers like feature-scaling unless requested).
+
+\subsection{\textcolor{red}{Notation and vectorized setup}}
+We use the following vectorized notation (columns = examples):
+
+\begin{itemize}
+  \item $X \in \mathbb{R}^{d\times N}$: input matrix with columns $\mathbf{x}^{(i)}$.
+  \item $y \in \mathbb{R}^{1\times N}$: target row vector.
+  \item $W^{(1)} \in \mathbb{R}^{m\times d}$, $\mathbf{b}^{(1)}\in\mathbb{R}^{m\times 1}$.
+  \item $Z = W^{(1)}X + \mathbf{b}^{(1)}\mathbf{1}_{1\times N}\in\mathbb{R}^{m\times N}$.
+  \item $H = \phi(Z)=\tanh(Z)\in\mathbb{R}^{m\times N}$.
+  \item $w^{(2)}\in\mathbb{R}^{m\times 1}$, $b^{(2)}\in\mathbb{R}$.
+  \item $\hat{y} = (w^{(2)})^\top H + b^{(2)}\mathbf{1}_{1\times N}\in\mathbb{R}^{1\times N}.$
+  \item Error vector: $e = \hat{y} - y \in \mathbb{R}^{1\times N}.$
+\end{itemize}
+
+\subsection{\textcolor{red}{Gradient derivation (compact matrix form)}}
+We compute gradients of $L$ with respect to parameters $w^{(2)}, b^{(2)}, W^{(1)}, \mathbf{b}^{(1)}$.
+
+\subsection*{Output layer}
+\[
+\begin{aligned}
+\frac{\partial L}{\partial w^{(2)}}
+&= \frac{1}{N}\, H\, e^\top \qquad\in\mathbb{R}^{m\times 1},\\[6pt]
+\frac{\partial L}{\partial b^{(2)}}
+&= \frac{1}{N}\sum_{i=1}^N e_i \qquad\in\mathbb{R}.
+\end{aligned}
+\]
+
+\subsection*{Hidden layer}
+Let the elementwise derivative of $\tanh$ be $\phi'(z) = 1 - \tanh(z)^2$.
+First form:
+\[
+S = w^{(2)}\, e \quad\in\mathbb{R}^{m\times N},
+\]
+(i.e. each column of $e$ multiplied by $w^{(2)}$). Then elementwise multiply by the derivative:
+\[
+D = S \odot \phi'(Z) = \big(w^{(2)} e\big) \odot \big(1 - H.^2\big) \quad\in\mathbb{R}^{m\times N}.
+\]
+Finally,
+\[
+\boxed{\displaystyle \frac{\partial L}{\partial W^{(1)}} = \frac{1}{N}\, D\, X^\top \in\mathbb{R}^{m\times d}}
+\qquad\text{and}\qquad
+\boxed{\displaystyle \frac{\partial L}{\partial \mathbf{b}^{(1)}} = \frac{1}{N}\,D\,\mathbf{1}_{N\times 1}.}
+\]
+
+This completes the standard backprop chain: output error $e$ $\rightarrow$ scale by $w^{(2)}$ $\rightarrow$ multiply by $\phi'(Z)$ $\rightarrow$ combine with $X$ to get $\nabla_{W^{(1)}}$.
+
+\subsection{\textcolor{red}{Shapes summary}}
+\begin{center}
+\begin{tabular}{@{}lcc@{}}
+\toprule
+Quantity & Symbol & Shape \\ \midrule
+Inputs & $X$ & $d\times N$ \\
+Targets & $y$ & $1\times N$ \\
+Hidden pre-activation & $Z$ & $m\times N$ \\
+Hidden activation & $H$ & $m\times N$ \\
+Output weights & $w^{(2)}$ & $m\times 1$ \\
+Output bias & $b^{(2)}$ & scalar \\
+Loss & $L$ & scalar \\
+Gradients & $\partial L/\partial W^{(1)}$ & $m\times d$ \\
+& $\partial L/\partial w^{(2)}$ & $m\times 1$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{\textcolor{red}{ MATLAB Code}}
+Below is the \textbf{minimal} MATLAB script implementing the forward pass, the MSE loss, the vectorized backpropagation, and a full-batch gradient descent training loop. This file intentionally contains only the essential pieces.
+
+\begin{verbatim}
+% mlp_regression_tanh.m
+% Regression with MLP (one hidden layer, tanh) — Gradient Derivation via Backpropagation
+% Minimal version: only includes the core theoretical parts.
+% Usage: run the script.
+
+clear; close all; clc;
+
+%% Hyperparameters
+d = 5;            % input dimension
+m = 10;           % number of hidden units
+N = 400;          % number of training examples
+lr = 0.05;        % learning rate
+epochs = 1000;    % training epochs
+seed = 1;
+
+rng(seed);
+
+%% Create simple regression data (no feature scaling)
+X = randn(d, N);                      % inputs (d x N)
+trueW = randn(1, d) * 0.5;            % true linear mapping
+yclean = trueW * X;                   % noiseless target
+y = yclean + 0.3 * randn(1, N);       % add small noise
+
+%% Initialize parameters
+params = initParams(d, m);
+
+%% Train
+[params, loss_history] = trainMLP(X, y, params, lr, epochs);
+
+%% Plot loss history
+figure;
+plot(1:length(loss_history), loss_history, 'LineWidth', 1.5);
+xlabel('Epoch'); ylabel('MSE Loss'); title('Training Loss');
+
+%% Predictions on training set and parity plot
+yhat = predictMLP(X, params);
+figure;
+scatter(y, yhat, 20, 'filled');
+hold on; plot(min(y):0.1:max(y), min(y):0.1:max(y), 'k--');
+xlabel('True y'); ylabel('Predicted ^y'); title('Parity plot (train)');
+
+%% ---- Local functions ----
+
+function params = initParams(d, m)
+% Initialize network parameters
+% Inputs:
+%   d - input dimension
+%   m - number of hidden units
+% Outputs:
+%   params - struct containing:
+%       W1 (m x d), b1 (m x 1), w2 (m x 1), b2 (scalar)
+    scale = 1 / sqrt(d);
+    params.W1 = scale * randn(m, d);
+    params.b1 = zeros(m, 1);
+    params.w2 = scale * randn(m, 1);
+    params.b2 = 0;
+end
+
+function [params, loss_history] = trainMLP(X, y, params, lr, epochs)
+% Train the MLP with full-batch gradient descent
+% Inputs:
+%   X - d x N input matrix
+%   y - 1 x N target row vector
+%   params - initial parameters struct
+%   lr - learning rate (scalar)
+%   epochs - number of epochs
+% Outputs:
+%   params - trained parameters
+%   loss_history - vector of loss values (length = epochs)
+
+    N = size(X, 2);
+    loss_history = zeros(epochs, 1);
+
+    for ep = 1:epochs
+        % Forward pass
+        [H, Z, yhat] = forwardMLP(X, params);
+
+        % Compute loss (MSE)
+        e = yhat - y; % 1 x N
+        loss = (1 / (2 * N)) * sum(e.^2);
+        loss_history(ep) = loss;
+
+        % Backpropagation
+        d_w2 = (1 / N) * (H * e');       % m x 1
+        d_b2 = (1 / N) * sum(e(:));      % scalar
+
+        phi_prime = 1 - H.^2;            % derivative of tanh (m x N)
+        S = params.w2 * e;               % m x N
+        D = S .* phi_prime;              % m x N
+
+        d_W1 = (1 / N) * (D * X');       % m x d
+        d_b1 = (1 / N) * sum(D, 2);      % m x 1
+
+        % Parameter update
+        params.W1 = params.W1 - lr * d_W1;
+        params.b1 = params.b1 - lr * d_b1;
+        params.w2 = params.w2 - lr * d_w2;
+        params.b2 = params.b2 - lr * d_b2;
+    end
+end
+
+function [H, Z, yhat] = forwardMLP(X, params)
+% Forward pass through the MLP
+% Inputs:
+%   X - d x N inputs
+%   params - parameter struct with W1, b1, w2, b2
+% Outputs:
+%   H - m x N hidden activations (tanh)
+%   Z - m x N pre-activations (W1*X + b1)
+%   yhat - 1 x N predictions
+
+    Z = params.W1 * X + params.b1 * ones(1, size(X, 2));
+    H = tanh(Z);
+    yhat = (params.w2)' * H + params.b2 * ones(1, size(X, 2)); % 1 x N
+end
+
+function yhat = predictMLP(X, params)
+% Predict using trained MLP
+% Inputs:
+%   X - d x N inputs
+%   params - trained parameters
+% Outputs:
+%   yhat - 1 x N predictions
+    [~, ~, yhat] = forwardMLP(X, params);
+end
+\end{verbatim}
+
+\subsection{\textcolor{red}{Function documentation (inputs \& outputs)}}
+Below is a concise summary of each MATLAB function's inputs and outputs and its role.
+
+\begin{itemize}
+  \item \textbf{\texttt{initParams(d,m)}} \\
+    \textbf{Inputs:} $d$ (input dimension), $m$ (hidden units). \\
+    \textbf{Outputs:} \texttt{params} struct with fields:
+    \texttt{W1}$\in\mathbb{R}^{m\times d}$, \texttt{b1}$\in\mathbb{R}^{m\times1}$,
+    \texttt{w2}$\in\mathbb{R}^{m\times1}$, \texttt{b2}$\in\mathbb{R}$. \\
+    \textbf{Role:} initialize weights (small random) and zero biases.
+  \item \textbf{\texttt{trainMLP(X,y,params,lr,epochs)}} \\
+    \textbf{Inputs:} $X\in\mathbb{R}^{d\times N}$, $y\in\mathbb{R}^{1\times N}$,
+    \texttt{params}, scalar \texttt{lr}, integer \texttt{epochs}. \\
+    \textbf{Outputs:} trained \texttt{params} and \texttt{loss\_history} (vector). \\
+    \textbf{Role:} full-batch gradient descent loop using vectorized backprop.
+  \item \textbf{\texttt{forwardMLP(X,params)}} \\
+    \textbf{Inputs:} $X\in\mathbb{R}^{d\times N}$, \texttt{params}. \\
+    \textbf{Outputs:} $H\in\mathbb{R}^{m\times N}$ (tanh activations),
+    $Z\in\mathbb{R}^{m\times N}$ (pre-activations),
+    $\hat{y}\in\mathbb{R}^{1\times N}$ (predictions). \\
+    \textbf{Role:} compute the network forward pass.
+  \item \textbf{\texttt{predictMLP(X,params)}} \\
+    \textbf{Inputs:} $X\in\mathbb{R}^{d\times N}$, \texttt{params}. \\
+    \textbf{Outputs:} $\hat{y}\in\mathbb{R}^{1\times N}$. \\
+    \textbf{Role:} convenience wrapper to call \texttt{forwardMLP} and return predictions.
+\end{itemize}
+
+
+
+% -------------------- ADD: Expanded Tasks 2-4 START --------------------
+\subsection{\textcolor{red}{Task 2: Impact of Unequal Feature Scales}}
+
+This task studies mathematically how unequal feature scales influence the
+training dynamics of neural networks, focusing on gradient descent and
+second-order methods.
+
+\subsection*{Objective}
+To demonstrate how input feature scaling affects:
+\begin{enumerate}
+  \item Gradient magnitudes during training with vanilla gradient descent.
+  \item The conditioning of second-order approximations such as the Hessian or Gauss-Newton matrix.
+\end{enumerate}
+The discussion should conclude with the practical consequences for
+convergence speed and numerical stability.
+
+\subsection*{Mathematical analysis}
+
+Let the input matrix be $X \in \mathbb{R}^{d \times N}$, with columns representing data points.
+If features are rescaled by a diagonal matrix
+$S = \operatorname{diag}(s_1, s_2, \dots, s_d)$, then
+$\tilde{X} = S X$ are the scaled inputs.
+
+\paragraph{Gradient impact.}
+For a single hidden-layer network with activation $\phi$,
+hidden preactivations $z = W^{(1)} x + b^{(1)}$, and output
+$\hat{y} = (w^{(2)})^{\top} \phi(z) + b^{(2)}$, the gradient with respect to the first-layer weights is
+\[
+\frac{\partial L}{\partial W^{(1)}} =
+\frac{1}{N} \sum_i
+\left( (w^{(2)} e_i) \odot \phi'(z^{(i)}) \right)
+(x^{(i)})^{\top}.
+\]
+Scaling feature $j$ by $s_j$ scales the $j$th column of this gradient by $s_j$.
+Thus large-scale features produce proportionally large gradients, which can
+cause gradient explosion, while small-scale features lead to vanishing updates.
+
+\paragraph{Second-order conditioning.}
+The Hessian for mean-squared error loss involves terms proportional to $X X^{\top}$.
+When features have unequal scales, this matrix becomes ill-conditioned:
+the condition number $\kappa(X X^{\top})$ grows roughly as
+$(\max s_j / \min s_j)^2$.
+Consequently, both Newton and Gauss-Newton steps require strong damping or
+regularization to remain numerically stable.
+
+\paragraph{Conclusion.}
+Training with unnormalized inputs can either oscillate (too large step sizes
+along high-scale features) or converge very slowly (small learning rate needed
+to compensate). Proper normalization brings all coordinates to comparable
+scale, improving both first- and second-order convergence.
+
+\subsection*{Expected outcome}
+Students should demonstrate analytically (and optionally numerically) that
+gradient and Hessian magnitudes vary with feature scales, and explain how this
+causes instability or slow convergence.
+
+\subsection{\textcolor{red}{Task 3: Preprocessing Pipeline Design}}
+
+This task requires designing a complete data preprocessing pipeline to mitigate
+the issues caused by unequal feature scales and outliers.
+
+\subsection*{Pipeline objectives}
+The pipeline should:
+\begin{itemize}
+  \item Ensure that all features contribute comparably to gradient magnitudes.
+  \item Reduce outlier influence and numerical instability.
+  \item Optionally remove correlations to improve conditioning.
+\end{itemize}
+
+\subsection*{Proposed pipeline and justification}
+
+\begin{enumerate}
+  \item \textbf{Outlier handling.}
+        Detect and clip outliers using median and median absolute deviation (MAD)
+        statistics or interquartile ranges.
+        This prevents extreme values from dominating variance estimates.
+
+  \item \textbf{Centering.}
+        Subtract the feature mean or median:
+        $x_j \leftarrow x_j - \mu_j$.
+        Centering simplifies optimization because the network bias terms
+        no longer need to compensate for data offsets.
+
+  \item \textbf{Standardization.}
+        Divide each feature by its standard deviation (or MAD for robustness):
+        $x_j \leftarrow (x_j - \mu_j) / \sigma_j$.
+        After this step, each feature has variance near one, so gradient scales
+        become balanced.
+
+  \item \textbf{Optional whitening.}
+        Compute covariance $C = \frac{1}{N} X X^{\top}$,
+        perform eigen-decomposition $C = P \Lambda P^{\top}$,
+        and transform $X \leftarrow \Lambda^{-1/2} P^{\top} X$ (ZCA or PCA whitening).
+        Whitening decorrelates features, giving isotropic curvature.
+
+  \item \textbf{Batch normalization.}
+        During network training, add batch normalization layers to stabilize
+        hidden activations and permit larger learning rates.
+\end{enumerate}
+
+\subsection*{Execution instructions}
+In MATLAB, prepare a preprocessing function (e.g. \texttt{preprocessData.m})
+that reads raw features, performs the above steps, and returns standardized data.
+The resulting dataset should have approximately unit variance in all dimensions.
+Then train the MLP using both raw and processed data to observe faster convergence
+and lower final loss with normalization.
+
+\subsection{\textcolor{red}{Task 4: Optimization Methods for Weight Updates}}
+
+Using the same MLP and MSE loss, this task compares four optimization methods
+for the output-layer parameters $\theta = [w^{(2)}; b^{(2)}]$.
+
+\subsection*{Analytical derivation}
+Let $H \in \mathbb{R}^{m \times N}$ be hidden activations and
+$J \in \mathbb{R}^{N \times P}$ be the Jacobian with rows
+$[h_i^{\top} \;\; 1]$. Define residuals $r = \hat{y} - y$.
+Then:
+\[
+g = \frac{1}{N} J^{\top} r, \quad
+H = \frac{1}{N} J^{\top} J.
+\]
+Since $\hat{y}$ is linear in $\theta$, $H$ is exact (no approximation).
+
+\subsection*{Update rules and complexity}
+
+\begin{itemize}
+  \item \textbf{Gradient descent (GD):}
+        $\theta \leftarrow \theta - \eta g$.
+        Cost per iteration: $\mathcal{O}(N P)$.
+
+  \item \textbf{Newton's method:}
+        $\theta \leftarrow \theta - H^{-1} g$.
+        Cost: $\mathcal{O}(N P^2 + P^3)$ for forming and inverting $H$.
+
+  \item \textbf{Gauss-Newton (GN):}
+        Same as Newton here since the model is linear in $\theta$.
+
+  \item \textbf{Levenberg-Marquardt (LM):}
+        Solve $(J^{\top} J + \lambda N I) \Delta = -N g$,
+        $\theta \leftarrow \theta + \Delta$.
+        LM blends GN and GD behavior via damping $\lambda$.
+\end{itemize}
+
+LM is often preferred because:
+\begin{itemize}
+  \item It is more robust under ill-conditioning.
+  \item It automatically adjusts between fast local convergence (small $\lambda$)
+        and stable global behavior (large $\lambda$).
+\end{itemize}
+
+\subsection*{MATLAB implementation}
+
+The following function implements all four methods.
+Save this block as \texttt{update\_output\_params.m} or include it directly in your main file.
+
+\begin{verbatim}
+function [theta_new, info] = update_output_params(H, y, theta, opts)
+% UPDATE_OUTPUT_PARAMS  One-step update of output-layer parameters.
+% Inputs:
+%   H     - (m x N) matrix of hidden activations
+%   y     - (1 x N) vector of targets
+%   theta - (P x 1) parameter vector [w2; b2], P = m + 1
+%   opts  - structure with fields:
+%       .method  : 'gd', 'newton', 'gn', or 'lm'
+%       .lr      : learning rate for GD (default 0.01)
+%       .lambda  : damping for LM (default 1e-3)
+%       .adapt_lambda : logical, reduce lambda on success
+%
+% Outputs:
+%   theta_new - updated parameters
+%   info - diagnostic info with gradients, loss, etc.
+
+    if nargin < 4, opts = struct(); end
+    if ~isfield(opts,'method'), opts.method = 'lm'; end
+    if ~isfield(opts,'lr'), opts.lr = 0.01; end
+    if ~isfield(opts,'lambda'), opts.lambda = 1e-3; end
+    if ~isfield(opts,'adapt_lambda'), opts.adapt_lambda = false; end
+
+    [m, N] = size(H);
+    P = m + 1;
+    J = [H' , ones(N,1)]; % Jacobian (N x P)
+
+    yhat = (theta(1:end-1)' * H) + theta(end);
+    r = (yhat - y)'; % residuals
+    loss_before = (1/(2*N)) * sum(r.^2);
+
+    g = (1/N) * (J' * r);         % gradient
+    H_approx = (1/N) * (J' * J);  % exact Hessian
+
+    switch lower(opts.method)
+        case 'gd'
+            theta_new = theta - opts.lr * g;
+        case {'newton','gn'}
+            delta = -(H_approx + 1e-12*eye(P)) \ g;
+            theta_new = theta + delta;
+        case 'lm'
+            lambda = opts.lambda;
+            for trial = 1:10
+                A = H_approx + lambda * eye(P);
+                delta = -A \ g;
+                theta_try = theta + delta;
+                yhat_try = (theta_try(1:end-1)' * H) + theta_try(end);
+                r_try = (yhat_try - y)';
+                loss_try = (1/(2*N)) * sum(r_try.^2);
+                if loss_try <= loss_before
+                    theta_new = theta_try; break;
+                else
+                    lambda = lambda * 10;
+                end
+            end
+        otherwise
+            error('Unknown method.');
+    end
+
+    info.grad = g;
+    info.loss_before = loss_before;
+    yhat_new = (theta_new(1:end-1)' * H) + theta_new(end);
+    info.loss_after = (1/(2*N)) * sum((yhat_new - y).^2);
+end
+\end{verbatim}
+
+\subsection*{Execution guide}
+\begin{enumerate}
+  \item Train a simple MLP with one hidden layer to obtain hidden activations $H$.
+  \item Initialize $\theta = [w^{(2)}; b^{(2)}]$ randomly.
+  \item Run multiple update steps using each method:
+        \begin{verbatim}
+opts.method = 'gd'; [theta_gd, info_gd] = update_output_params(H, y, theta, opts);
+opts.method = 'newton'; [theta_newton, info_newton] = update_output_params(H, y, theta, opts);
+opts.method = 'lm'; [theta_lm, info_lm] = update_output_params(H, y, theta, opts);
+        \end{verbatim}
+  \item Compare losses \texttt{info.loss\_before} and \texttt{info.loss\_after}
+        for each method.
+  \item Observe that LM usually yields the most stable and fastest reduction in loss.
+\end{enumerate}
+
+
+% -------------------- ADD: Task 1 (2-3-2-1) START --------------------
+
+\vspace{1cm} 
+\begin{center}
+\textbf{\Large Question 2}
+\end{center}
+
+
+\subsection{Task 1: Forward Propagation for the 2--3--2--1 Network}
+
+\subsection*{Network description}
+We consider a fully connected feed-forward network with architecture
+\(2\!-\!3\!-\!2\!-\!1\) (2 inputs, 3 neurons in layer 1, 2 neurons in layer 2,
+1 output neuron). All hidden and output neurons use the sigmoid
+activation \(\sigma(z)=1/(1+e^{-z})\) in the canonical variant. A binary
+feed-forward variant uses the hard-threshold function
+\(\phi(v)=1\) if \(v\ge0\) else \(0\).
+
+\subsection*{Forward-pass equations}
+Using the notation \(W^{(1)},b^{(1)}\) (layer 1), \(W^{(2)},b^{(2)}\) (layer 2),
+\(W^{(3)},b^{(3)}\) (output), and a column input \(x\in\mathbb{R}^2\):
+
+\[
+\begin{aligned}
+z^{(1)} &= W^{(1)} x + b^{(1)}, & a^{(1)} &= \sigma(z^{(1)}),\\[4pt]
+z^{(2)} &= W^{(2)} a^{(1)} + b^{(2)}, & a^{(2)} &= \sigma(z^{(2)}),\\[4pt]
+z^{(3)} &= W^{(3)} a^{(2)} + b^{(3)}, & \hat{y} &= \sigma(z^{(3)}).
+\end{aligned}
+\]
+
+For the binary variant replace \(\sigma\) with \(\phi\).
+
+\subsection*{MATLAB }
+Save the following code as \texttt{mlp\_forward\_2321.m} and run it in MATLAB.
+It initializes small random weights, evaluates the forward pass for
+\(x=[0.5;\,-0.3]\), and prints pre-activations and activations for each layer.
+
+\begin{verbatim}
+% mlp_forward_2321.m
+% Minimal forward pass for a 2-3-2-1 network (sigmoid and hard-threshold).
+clear; clc;
+d = 2; m1 = 3; m2 = 2; seed = 1; scale = 0.1;
+rng(seed);
+W1 = scale * randn(m1, d); b1 = scale * randn(m1, 1);
+W2 = scale * randn(m2, m1); b2 = scale * randn(m2, 1);
+W3 = scale * randn(1, m2); b3 = scale * randn(1, 1);
+x = [0.5; -0.3];
+[z1, a1, z2, a2, z3, yhat] = forward_sigmoid(x, W1, b1, W2, b2, W3, b3);
+fprintf('--- Sigmoid variant ---\n');
+fprintf('z1 = [%g, %g, %g]\n', z1);
+fprintf('a1 = [%g, %g, %g]\n', a1);
+fprintf('z2 = [%g, %g]\n', z2);
+fprintf('a2 = [%g, %g]\n', a2);
+fprintf('z3 = %g, yhat = %g\n\n', z3, yhat);
+[z1t, a1t, z2t, a2t, z3t, yhat_t] = forward_threshold(x, W1, b1, W2, b2, W3, b3);
+fprintf('--- Hard-threshold variant ---\n');
+fprintf('z1 = [%g, %g, %g]\n', z1t);
+fprintf('a1 (threshold) = [%g, %g, %g]\n', a1t);
+fprintf('z2 = [%g, %g]\n', z2t);
+fprintf('a2 (threshold) = [%g, %g]\n', a2t);
+fprintf('z3 = %g, yhat (threshold) = %g\n', z3t, yhat_t);
+% (Forward functions forward_sigmoid and forward_threshold definitions
+%  appear below in the same script, exactly as in the main file.)
+\end{verbatim}
+
+\subsection*{Example numeric output (seed = 1, weight scale = 0.1)}
+Running the script yields (rounded):
+\[
+\begin{aligned}
+z^{(1)} &\approx [0.2741,\;-0.0703,\;0.1442]^\top, &
+a^{(1)} &\approx [0.5681,\;0.4824,\;0.5360]^\top,\\
+z^{(2)} &\approx [-0.1640,\;0.0067]^\top, &
+a^{(2)} &\approx [0.4591,\;0.5017]^\top,\\
+z^{(3)} &\approx 0.02010, & \hat{y} &\approx 0.50502.
+\end{aligned}
+\]
+For the hard-threshold variant the binary activations become:
+\(a^{(1)}_{\phi}=[1,0,1]^\top,\; a^{(2)}_{\phi}=[0,1]^\top\), and \(\hat y_{\phi}=1\).
+
+\subsection*{Notes}
+\begin{itemize}
+  \item The MATLAB functions \texttt{forward\_sigmoid} and
+        \texttt{forward\_threshold} return both pre-activations (z) and activations (a).
+  \item The code is deliberately minimal (no training, no plotting).
+  \item Change \texttt{seed} or \texttt{scale} to explore different initializations.
+\end{itemize}
+
+
+% -------------------- ADD: Tasks 2-4 (Backprop & One Update) START --------------------
+\subsection{Task 2: Backward Propagation Derivation (2--3--2--1)}
+
+Using the notation in Task 1, the forward pass is:
+\[
+\begin{aligned}
+z^{(1)} &= W^{(1)} x + b^{(1)}, & a^{(1)} &= \sigma(z^{(1)}),\\
+z^{(2)} &= W^{(2)} a^{(1)} + b^{(2)}, & a^{(2)} &= \sigma(z^{(2)}),\\
+z^{(3)} &= W^{(3)} a^{(2)} + b^{(3)}, & \hat{y} &= \sigma(z^{(3)}).
+\end{aligned}
+\]
+
+Let the loss for one example be \(L=\tfrac{1}{2}(\hat{y}-y)^2\). Define
+\(\sigma'(z)=\sigma(z)(1-\sigma(z))\). The backpropagation equations are:
+
+\[
+\delta^{(3)} = (\hat{y}-y)\,\sigma'(z^{(3)}),\qquad
+\frac{\partial L}{\partial W^{(3)}} = \delta^{(3)} a^{(2)\top},\quad
+\frac{\partial L}{\partial b^{(3)}} = \delta^{(3)}.
+\]
+
+\[
+\delta^{(2)} = (W^{(3)\top}\delta^{(3)}) \odot \sigma'(z^{(2)}),
+\qquad
+\frac{\partial L}{\partial W^{(2)}} = \delta^{(2)} a^{(1)\top},\quad
+\frac{\partial L}{\partial b^{(2)}} = \delta^{(2)}.
+\]
+
+\[
+\delta^{(1)} = (W^{(2)\top}\delta^{(2)}) \odot \sigma'(z^{(1)}),
+\qquad
+\frac{\partial L}{\partial W^{(1)}} = \delta^{(1)} x^\top,\quad
+\frac{\partial L}{\partial b^{(1)}} = \delta^{(1)}.
+\]
+
+\subsection{Task 3: Weight Update Formulation and One Iteration}
+
+Using learning rate \(\eta = 0.1\), perform one update:
+\[
+W^{(\ell)} \leftarrow W^{(\ell)} - \eta \frac{\partial L}{\partial W^{(\ell)}},\qquad
+b^{(\ell)} \leftarrow b^{(\ell)} - \eta \frac{\partial L}{\partial b^{(\ell)}}.
+\]
+
+\textbf{Example:} \(x=[0.5; -0.3],\; y=0.8\). With reproducible initialization
+(\texttt{rng(1)}; \texttt{scale=0.1}) the forward pass yields
+\[
+\begin{aligned}
+z^{(1)} &\approx [0.27405114,-0.07034022,0.14422045]^\top, & a^{(1)} &\approx [0.56808718,0.48242219,0.53599275]^\top,\\
+z^{(2)} &\approx [-0.16404225,0.00668266]^\top, & a^{(2)} &\approx [0.45908116,0.50167066]^\top,\\
+z^{(3)} &\approx 0.02009844, & \hat{y} &\approx 0.50502444.
+\end{aligned}
+\]
+
+Gradients computed by backprop are (rounded):
+\[
+\begin{aligned}
+\frac{\partial L}{\partial W^{(3)}} &\approx [-0.03385101,\ -0.03699141],\quad
+\frac{\partial L}{\partial b^{(3)}} \approx -0.07373644,\\
+\frac{\partial L}{\partial W^{(2)}} &\approx
+\begin{bmatrix}0.00091315 & 0.00077545 & 0.00086156\\
+-0.00004421 & -0.00003754 & -0.00004171\end{bmatrix},\\
+\frac{\partial L}{\partial b^{(2)}} &\approx [0.00160742,\ -0.00007782]^\top,\\
+\frac{\partial L}{\partial W^{(1)}} &\approx
+\begin{bmatrix}-4.6098\times10^{-6} & 2.7659\times10^{-6}\\
+2.9714\times10^{-5} & -1.7829\times10^{-5}\\
+-4.2276\times10^{-5} & 2.5366\times10^{-5}\end{bmatrix},\\
+\frac{\partial L}{\partial b^{(1)}} &\approx [-9.2196\times10^{-6},\ 5.9429\times10^{-5},\ -8.4553\times10^{-5}]^\top.
+\end{aligned}
+\]
+
+After one SGD step with \(\eta=0.1\) the parameters update accordingly (values
+available from the code run).
+
+\subsection{Task 4: Activation Function Comparison and Interpretation}
+
+\begin{itemize}
+  \item \textbf{Gradient-based training:} For the sigmoid network all derivatives
+        are well-defined and backprop provides informative gradients. Training
+        with gradient descent is possible.
+  \item \textbf{Hard-threshold variant:} The hard-threshold activation
+        $\phi(v)=\mathbf{1}_{v\ge 0}$ has derivative zero almost everywhere; thus
+        $\partial \hat{y}/\partial\theta \approx 0$ for almost all parameter
+        values, making gradient-based optimization ineffective.
+  \item \textbf{Behavior at $(0,0)$:} For the same initialization used above,
+        the biases in the first layer produce $a^{(1)}_\phi=[1,0,1]$, then
+        $a^{(2)}_\phi=[0,1]$, and finally $\hat y_\phi = 1$ for input $(0,0)$.
+        (This demonstrates the piecewise-constant nature of the binary network.)
+\end{itemize}
+
+
+% -------------------- ADD: Tasks 2-4 (Backprop & One Update) END --------------------
+
+% -------------------- ADD: Task 1 (2-3-2-1) END --------------------
+
+
+% -------------------- ADD: Expanded Tasks 2-4 END --------------------
+
+
+
+
+% -------------------- ADD: Time Series (RNN/LSTM) START --------------------
+\subsection{\textcolor{green}{Neural Networks for Time Series Modeling (bonus)}}
+
+We consider a univariate time series \(x_{1:T}\). Typical modeling objectives:
+one-step-ahead prediction \(\hat{x}_{t+1}\) using data up to time \(t\). The
+following subsections explain temporal dependence, RNN forward equations,
+LSTM/GRU mechanisms, and practical MATLAB code.
+
+\subsection*{(a) Temporal dependence}
+Time series are ordered and autocorrelated. Unlike i.i.d. data, shuffling
+the series destroys temporal structure. Two common strategies to preserve
+time are:
+\begin{itemize}
+  \item feed-forward on lagged windows: input vector includes last \(p\) lags;
+  \item recurrent models: maintain a hidden state that compresses past.
+\end{itemize}
+Input: sequence \(x_{1:T}\). Output (example): predictions \(\hat{x}_{2:T}\).
+
+\subsection*{(b) Recurrent Neural Networks (RNN)}
+A vanilla RNN step (univariate input) is:
+\[
+\begin{aligned}
+z_t &= W_{xh} x_t + W_{hh} h_{t-1} + b_h,\\
+h_t &= \tanh(z_t),\\
+\hat y_t &= W_{hy} h_t + b_y.
+\end{aligned}
+\]
+Hidden state \(h_t\) carries summary information about the past. Training
+via BPTT requires backpropagating through time; repeated multiplications by
+$W_{hh}$ may lead to vanishing or exploding gradients.
+
+\subsection*{(c) LSTM and GRU mechanisms}
+LSTM single-step equations (compact):
+\[
+\begin{aligned}
+i_t &= \sigma(W_{xi}x_t + W_{hi}h_{t-1} + b_i),\\
+f_t &= \sigma(W_{xf}x_t + W_{hf}h_{t-1} + b_f),\\
+o_t &= \sigma(W_{xo}x_t + W_{ho}h_{t-1} + b_o),\\
+\tilde c_t &= \tanh(W_{xg}x_t + W_{hg}h_{t-1} + b_g),\\
+c_t &= f_t \odot c_{t-1} + i_t \odot \tilde c_t,\\
+h_t &= o_t \odot \tanh(c_t),
+\end{aligned}
+\]
+Gates control information flow and preserve gradient flow over long horizons.
+
+GRU is a simpler gating variant:
+\[
+\begin{aligned}
+z_t &= \sigma(W_{xz}x_t + W_{hz}h_{t-1} + b_z),\\
+r_t &= \sigma(W_{xr}x_t + W_{hr}h_{t-1} + b_r),\\
+\tilde h_t &= \tanh(W_{xh}x_t + W_{hh}(r_t\odot h_{t-1}) + b_h),\\
+h_t &= (1-z_t)\odot h_{t-1} + z_t\odot\tilde h_t.
+\end{aligned}
+\]
+
+\subsection*{(d) Comparison and applicability}
+\begin{itemize}
+  \item \textbf{Feed-forward (lag windows):} simple, effective for short memory.
+  \item \textbf{RNN:} good for sequence compression; training harder for long-range dependencies.
+  \item \textbf{LSTM/GRU:} best for long dependencies; more parameters and compute.
+\end{itemize}
+
+\subsection*{ MATLAB }
+
+Save the following as \texttt{rnn\_bptt\_train.m} and run in MATLAB. It is
+minimal and does not include plotting or extra utilities.
+
+\begin{verbatim}
+% rnn_bptt_train.m
+% Minimal RNN (vanilla) training on univariate time series with BPTT.
+% - Predicts x_{t+1} from x_t, using hidden state of size H.
+% - Minimal, reproducible, includes gradient clipping.
+% Usage: run the script. No extras.
+
+clear; clc;
+
+%% ---------- Configuration ----------
+rng(1);          % reproducible
+scale = 0.1;     % small init scale
+H = 10;          % hidden size (adjust)
+epochs = 200;    % training epochs
+lr = 1e-2;       % learning rate
+max_grad = 5.0;  % gradient clipping threshold
+
+%% ---------- Example data (replace with your series) ----------
+T = 300;
+t = (1:T);
+x = 0.5*sin(0.05*t) + 0.1*randn(1,T);   % 1 x T univariate series
+
+%% ---------- Model parameters (univariate input -> scalar output) ----------
+Wx = scale * randn(H, 1);    % H x 1
+Wh = scale * randn(H, H);    % H x H
+bh = zeros(H, 1);            % H x 1
+Wy = scale * randn(1, H);    % 1 x H
+by = 0;                      % scalar
+
+%% ---------- Training loop (predict x_{t+1} from x_t for t=1..T-1) ----------
+for ep = 1:epochs
+    % Forward pass over sequence
+    h = zeros(H, T);        % store hidden states; h(:,t) = h_t
+    yhat = zeros(1, T-1);   % predictions at times t=1..T-1
+    h_prev = zeros(H,1);
+    for tt = 1:T-1
+        xt = x(tt);                         % scalar
+        zt = Wx * xt + Wh * h_prev + bh;    % H x 1
+        ht = tanh(zt);                      % H x 1
+        y_t = Wy * ht + by;                 % scalar prediction for next step
+        h(:,tt) = ht;
+        yhat(tt) = y_t;
+        h_prev = ht;
+    end
+
+    % Compute loss (MSE) over t=1..T-1: target is x(t+1)
+    targets = x(2:T); % 1 x (T-1)
+    loss = (1/(2*(T-1))) * sum((yhat - targets).^2);
+
+    % Backpropagation through time (BPTT)
+    dWx = zeros(size(Wx));
+    dWh = zeros(size(Wh));
+    dbh = zeros(size(bh));
+    dWy = zeros(size(Wy));
+    dby = 0;
+    dh_next = zeros(H,1);
+
+    dy = (1/(T-1)) * (yhat - targets); % 1 x (T-1)
+
+    for tt = (T-1):-1:1
+        ht = h(:,tt);
+        if tt==1, h_prev = zeros(H,1); else h_prev = h(:,tt-1); end
+        dWy = dWy + dy(tt) * ht';
+        dby = dby + dy(tt);
+        dh = (Wy' * dy(tt)) + dh_next;
+        dz = dh .* (1 - ht.^2);
+        dWx = dWx + dz * x(tt);
+        dWh = dWh + dz * h_prev';
+        dbh = dbh + dz;
+        dh_next = Wh' * dz;
+    end
+
+    % Gradient clipping
+    grad_norm = sqrt(sum(dWx(:).^2) + sum(dWh(:).^2) + sum(dWy(:).^2) + sum(dbh(:).^2) + dby^2);
+    if grad_norm > max_grad
+        s = max_grad / grad_norm;
+        dWx = dWx * s; dWh = dWh * s; dWy = dWy * s; dbh = dbh * s; dby = dby * s;
+    end
+
+    % Parameter update (SGD)
+    Wx = Wx - lr * dWx;
+    Wh = Wh - lr * dWh;
+    bh = bh - lr * dbh;
+    Wy = Wy - lr * dWy;
+    by = by - lr * dby;
+
+    if mod(ep,20) == 0
+        fprintf('Epoch %d / %d - loss = %.6f\n', ep, epochs, loss);
+    end
+end
+
+fprintf('Training finished. Final loss = %.6f\n', loss);
+
+%% ---------- LSTM one-step forward (reference only; no training) ----------
+function [h_next, c_next, y_next] = lstm_step_forward(x_t, h_prev, c_prev, params)
+    H = size(h_prev,1);
+    Wx = params.Wx;   % 4H x 1
+    Wh = params.Wh;   % 4H x H
+    b  = params.b;    % 4H x 1
+    gates = Wx * x_t + Wh * h_prev + b; % 4H x 1
+    i = sigmoid(gates(1:H));
+    f = sigmoid(gates(H+1:2*H));
+    o = sigmoid(gates(2*H+1:3*H));
+    g = tanh(gates(3*H+1:4*H));
+    c_next = f .* c_prev + i .* g;
+    h_next = o .* tanh(c_next);
+    y_next = params.Wy * h_next + params.by;
+    function s = sigmoid(z), s = 1./(1+exp(-z)); end
+end
+\end{verbatim}
+
+% -------------------- ADD: Time Series (RNN/LSTM) END --------------------
+%\questiontitle{Exploratory Data Analysis: Social\_Network\_Ads.csv}
+
+
+% -------------------- EDA section formatted like your MLP block --------------------
+\section{Section 2}
+\subsection{\textcolor{orange}{Exploratory Data Analysis: Social\_Network\_Ads.csv}}
+This section provides a reproducible Exploratory Data Analysis (EDA) workflow for the dataset \texttt{Social\_Network\_Ads.csv}. The dataset is assumed to contain three columns: \texttt{Age}, \texttt{EstimatedSalary}, and \texttt{Purchased}. The material below includes:
+
+
+\subsection{\textcolor{orange}{EDA plan }}
+We propose the following minimal EDA steps (exactly as required):
+
+\begin{itemize}
+  \item \textbf{Goal:} Explore how \texttt{Age} and \texttt{EstimatedSalary} relate to the binary target \texttt{Purchased}.
+  \item \textbf{Assumptions:} CSV contains variables \texttt{Age}, \texttt{EstimatedSalary}, \texttt{Purchased}.
+  \item \textbf{Tasks:}
+    \begin{enumerate}
+      \item \textbf{Load and inspect} the dataset with \texttt{readtable}; check dimensions, types, missing values and duplicates.
+      \item \textbf{Summary statistics:} compute mean, standard deviation, median; present histograms and boxplots.
+      \item \textbf{Correlation analysis:} compute Pearson correlation (with p-value) and present a small correlation heatmap.
+      \item \textbf{Scatter analysis:} plot Age vs EstimatedSalary colored by purchase status (use \texttt{gscatter}); optionally show 2-D density via \texttt{histogram2}.
+
+    \end{enumerate}
+\end{itemize}
+
+\subsection{\textcolor{orange}{MATLAB script }}
+
+
+\begin{verbatim}
+% EDA_SocialNetworkAds.m
+% Exploratory Data Analysis for Social_Network_Ads.csv
+% Assumes CSV has columns: Age, EstimatedSalary, Purchased
+
+clear; close all; clc;
+
+%% 1. Load and Inspect
+filename = 'Social_Network_Ads.csv';     % change path if needed
+T = readtable(filename);                 % reads CSV into a table
+
+% Quick view
+disp('First 10 rows:');
+disp(head(T,10));                        % show first 10 rows
+
+disp('Table summary:');
+summary(T);                              % summary statistics for each variable
+
+% Check variable names
+disp('Variable names:');
+disp(T.Properties.VariableNames);
+
+% Check size and types
+[nRows,nCols] = size(T);
+fprintf('Dataset size: %d rows, %d columns\n', nRows, nCols);
+disp('Variable classes:');
+for i=1:nCols
+    fprintf('  %s : %s\n', T.Properties.VariableNames{i}, class(T.(i)));
+end
+
+%% Missing values and duplicates
+missingPerVar = varfun(@(x) sum(ismissing(x)), T, 'OutputFormat','uniform');
+fprintf('Missing counts per variable:\n');
+disp(array2table(missingPerVar, 'VariableNames', T.Properties.VariableNames));
+
+% Optionally remove or report duplicates
+dupIdx = duplicatedRows(T);              % helper function below
+fprintf('Number of duplicate rows: %d\n', sum(dupIdx));
+
+%% Convert Purchased to categorical (if numeric)
+if ~iscategorical(T.Purchased)
+    T.Purchased = categorical(T.Purchased);
+end
+
+%% 2. Summary statistics (means, std, medians)
+age = T.Age;
+salary = T.EstimatedSalary;
+
+fprintf('\nOverall summary statistics:\n');
+fprintf('Age: mean=%.2f, std=%.2f, median=%.2f, min=%.2f, max=%.2f\n', mean(age,'omitnan'), std(age,'omitnan'), median(age,'omitnan'), min(age), max(age));
+fprintf('EstimatedSalary: mean=%.2f, std=%.2f, median=%.2f, min=%.2f, max=%.2f\n', mean(salary,'omitnan'), std(salary,'omitnan'), median(salary,'omitnan'), min(salary), max(salary));
+
+% Grouped summary by Purchased
+grpStats = groupsummary(T, 'Purchased', {'mean','std','median'}, {'Age','EstimatedSalary'});
+disp('Grouped summary by Purchased (mean, std, median):');
+disp(grpStats);
+
+%% 3. Distributions: Histograms and boxplots
+figure('Name','Histograms: Age & EstimatedSalary','NumberTitle','off');
+subplot(2,2,1);
+h1 = histogram(age);
+title('Histogram of Age'); xlabel('Age'); ylabel('Count');
+subplot(2,2,2);
+h2 = histogram(salary);
+title('Histogram of Estimated Salary'); xlabel('Estimated Salary'); ylabel('Count');
+
+subplot(2,2,3);
+boxplot(age);
+title('Boxplot of Age'); ylabel('Age');
+subplot(2,2,4);
+boxplot(salary);
+title('Boxplot of Estimated Salary'); ylabel('Estimated Salary');
+
+% Optionally save figures:
+% saveas(gcf, 'hist_age_salary.png');
+
+%% 4. Correlation: Pearson correlation between Age and EstimatedSalary
+numMat = [age, salary];
+[R,P] = corrcoef(numMat, 'Rows','pairwise');
+corrAgeSalary = R(1,2);
+pval = P(1,2);
+fprintf('\nPearson correlation between Age and EstimatedSalary: r = %.4f, p = %.4g\n', corrAgeSalary, pval);
+
+figure('Name','Correlation matrix','NumberTitle','off');
+heatmap({'Age','EstimatedSalary'}, {'Age','EstimatedSalary'}, R, 'Colormap', parula, 'ColorLimits',[-1 1]);
+title('Pearson correlation matrix');
+% saveas(gcf, 'corr_matrix.png');
+
+%% 5. Scatter analysis: Age vs EstimatedSalary colored by Purchased
+figure('Name','Scatter: Age vs EstimatedSalary by Purchased','NumberTitle','off');
+gscatter(age, salary, T.Purchased, [], 'ox+'); % gscatter handles groups and legend
+xlabel('Age'); ylabel('Estimated Salary'); title('Age vs Salary colored by Purchased');
+legend('Location','best');
+
+% Add group centroids
+hold on;
+cats = categories(T.Purchased);
+colors = lines(numel(cats));
+for i=1:numel(cats)
+    idx = T.Purchased==cats{i};
+    if any(idx)
+        plot(mean(age(idx),'omitnan'), mean(salary(idx),'omitnan'), 's', 'MarkerSize',10, 'MarkerFaceColor', colors(i,:), 'MarkerEdgeColor','k');
+    end
+end
+hold off;
+% saveas(gcf, 'scatter_age_salary.png');
+
+%% Optional: density visualization using histogram2 (Age vs Salary)
+figure('Name','2D density: Age vs Salary','NumberTitle','off');
+histogram2(age, salary, 'DisplayStyle','tile', 'ShowEmptyBins','on');
+colorbar;
+xlabel('Age'); ylabel('Estimated Salary'); title('2D histogram (density)');
+% saveas(gcf, 'hist2_age_salary.png');
+
+%% 6. EDA Summary outputs (text)
+ageEdges = [18 25 30 40 50 60];
+ageBins = discretize(age, ageEdges);
+tblBins = table(ageBins, T.Purchased, 'VariableNames', {'AgeBin','Purchased'});
+binSummary = groupsummary(tblBins, {'AgeBin','Purchased'}, 'numel');
+disp('Counts by age bin and Purchased:');
+disp(binSummary);
+
+ageBinCats = unique(ageBins(~isnan(ageBins)));
+fprintf('\nPurchase fractions by age bin (edges):\n');
+for b = ageBinCats'
+    idx = ageBins==b;
+    if any(idx)
+        purchasedCount = sum(T.Purchased(idx) == categories(T.Purchased){end});
+        frac = purchasedCount / sum(idx);
+        fprintf(' bin %d (%.0f-%.0f): fraction purchased = %.3f (%d/%d)\n', b, ageEdges(b), ageEdges(b+1), frac, purchasedCount, sum(idx));
+    end
+end
+
+%% Helper function for duplicates detection (local)
+function d = duplicatedRows(tab)
+    C = table2cell(tab);
+    keys = cellfun(@(x) mat2str(x), C, 'UniformOutput', false);
+    [~,ia,ic] = unique(keys);
+    d = false(height(tab),1);
+    firstOcc = accumarray(ic, (1:height(tab))', [], @min);
+    for r=1:height(tab)
+        d(r) = (r ~= firstOcc(ic(r)));
+    end
+end
+\end{verbatim}
+
+\begin{verbatim}
+\begin{figure}[H]
+  \centering
+  \begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{hist_age.png}
+    \captionof{figure}{Histogram: Age}
+  \end{minipage}
+  \hfill
+  \begin{minipage}{0.48\textwidth}
+    \centering
+    \includegraphics[width=\linewidth]{hist_salary.png}
+    \captionof{figure}{Histogram: Estimated Salary}
+  \end{minipage}
+  \caption{Distributions for Age and Estimated Salary (replace with your exported figures).}
+\end{figure}
+
+
+\end{verbatim}
+
+\subsection{\textcolor{orange}{ MATLAB functions -> inputs/outputs}}
+\begin{description}
+  \item[\texttt{readtable(filename)}] Reads a CSV (or other delimited file) into a \texttt{table}. Input: string file path. Output: MATLAB table with variables accessible by dot notation (e.g. \texttt{T.Age}).
+  \item[\texttt{summary(T)}] Prints a compact summary of each variable in the table. No return value printed to console.
+  \item[\texttt{head(T,n)}] Returns the first \texttt{n} rows of table \texttt{T}. Useful for quick inspection.
+  \item[\texttt{ismissing(x)}] Logical mask (true where an element is missing). Works for tables, arrays, and cell arrays.
+  \item[\texttt{varfun(fun,T)}] Applies function \texttt{fun} to each variable (column) of table \texttt{T}.
+  \item[\texttt{categorical(x)}] Converts a variable to a categorical type for grouping and plotting.
+  \item[\texttt{groupsummary(T, groupVar, funcs, vars)}] Aggregates variables in \texttt{vars} by \texttt{groupVar} using functions \texttt{funcs} and returns a new summary table.
+  \item[\texttt{histogram(x)} / \texttt{histogram2(x,y)}] Create 1-D and 2-D histograms. Return histogram objects with properties like \texttt{BinEdges} and \texttt{Values}.
+  \item[\texttt{boxplot(x)}] Visualizes data quartiles and outliers.
+  \item[\texttt{corrcoef(X)}] Computes Pearson correlation matrix of columns in \texttt{X}. When called with two outputs \texttt{[R,P] = corrcoef(X)}, \texttt{P} contains p-values for correlation coefficients.
+  \item[\texttt{gscatter(x,y,group)}] Scatter plot with automatic grouping/colors/legend.
+  \item[\texttt{discretize(x,edges)}] Bins numeric data into intervals defined by \texttt{edges}.
+\end{description}
+
+
+% -------------------- PART B: LOGISTIC REGRESSION --------------------
+\subsection{\textcolor{orange}{Part B — Logistic Regression Classifier}}
+
+\subsection{\textcolor{orange}{Goal}}
+Implement binary logistic regression using only \texttt{Age} and \texttt{EstimatedSalary} as input features to predict \texttt{Purchased}.
+
+\subsection{\textcolor{orange}{Steps implemented}}
+\begin{enumerate}
+  \item Prepare Data: z-score normalization. Split data into 70\% train, 15\% validation, 15\% test.
+  \item Model: Logistic model \(\hat{y}=\sigma(w_0 + w_1 \, \text{Age} + w_2 \, \text{Salary})\) with \(\sigma(z)=1/(1+e^{-z})\). Binary cross-entropy loss.
+  \item Training: Manual batch gradient descent and built-in \texttt{fitglm} for comparison.
+  \item Evaluation: Accuracy, confusion matrix, ROC \& AUC, decision boundary in Age--Salary space.
+\end{enumerate}
+
+\subsection{\textcolor{orange}{MATLAB script}}
+
+
+\begin{lstlisting}
+
+clear; close all; clc;
+rng(0); % reproducibility
+
+%% Load data
+T = readtable('Social_Network_Ads.csv');
+Xraw = [T.Age, T.EstimatedSalary];
+yraw = T.Purchased;
+
+% Convert Purchased to numeric 0/1
+if iscell(yraw) || isstring(yraw) || iscategorical(yraw)
+    ytemp = double(categorical(yraw));
+    ytemp = ytemp - min(ytemp);
+    y = double(ytemp);
+else
+    y = double(yraw);
+end
+
+%% Normalize features (z-score)
+mu = mean(Xraw,1);
+sig = std(Xraw,0,1);
+X = (Xraw - mu) ./ sig;
+
+%% Split data
+N = size(X,1);
+idx = randperm(N);
+Ntrain = floor(0.70 * N);
+Nval = floor(0.15 * N);
+Ntest = N - Ntrain - Nval;
+
+trainIdx = idx(1:Ntrain);
+valIdx = idx(Ntrain+1:Ntrain+Nval);
+testIdx = idx(Ntrain+Nval+1:end);
+
+Xtrain = X(trainIdx,:);
+ytrain = y(trainIdx);
+Xval = X(valIdx,:);
+yval = y(valIdx);
+Xtest = X(testIdx,:);
+ytest = y(testIdx);
+
+%% Add bias term
+Xtrain_b = [ones(size(Xtrain,1),1), Xtrain];
+Xval_b = [ones(size(Xval,1),1), Xval];
+Xtest_b = [ones(size(Xtest,1),1), Xtest];
+
+%% Manual logistic regression (batch gradient descent)
+[nTrain, nFeatures_b] = size(Xtrain_b);
+w = zeros(nFeatures_b,1);
+alpha = 0.1;
+maxEpochs = 2000;
+sigmoid = @(z) 1 ./ (1 + exp(-z));
+trainLoss = zeros(maxEpochs,1);
+valLoss = zeros(maxEpochs,1);
+eps = 1e-12;
+
+for epoch = 1:maxEpochs
+    z = Xtrain_b * w;
+    p = sigmoid(z);
+    loss = -mean(ytrain .* log(p + eps) + (1 - ytrain) .* log(1 - p + eps));
+    trainLoss(epoch) = loss;
+    pval = sigmoid(Xval_b * w);
+    valLoss(epoch) = -mean(yval .* log(pval + eps) + (1 - yval) .* log(1 - pval + eps));
+    grad = (1 / nTrain) * (Xtrain_b' * (p - ytrain));
+    w = w - alpha * grad;
+end
+
+% Plot loss curves
+figure;
+plot(1:maxEpochs, trainLoss, 'LineWidth',1.5); hold on;
+plot(1:maxEpochs, valLoss, '--', 'LineWidth',1.5);
+xlabel('Epoch'); ylabel('Binary cross-entropy loss');
+legend('Train','Validation'); title('Training and Validation Loss'); grid on;
+
+%% Evaluate manual model
+p_test = sigmoid(Xtest_b * w);
+yhat_test = p_test >= 0.5;
+acc_manual = mean(yhat_test == ytest);
+fprintf('Manual logistic regression accuracy: %.4f\n', acc_manual);
+cm_manual = confusionmat(ytest, yhat_test);
+disp('Confusion matrix (manual):'); disp(cm_manual);
+[fp_rate, tp_rate, thr, auc_manual] = perfcurve(ytest, p_test, 1);
+fprintf('Manual model AUC = %.4f\n', auc_manual);
+figure; plot(fp_rate, tp_rate, 'LineWidth',1.5); xlabel('False Positive
+ Rate'); ylabel('True Positive Rate'); title('ROC Curve (Manual)'); grid on;
+
+%% Built-in fitglm comparison
+TblTrain = table(Xtrain(:,1), Xtrain(:,2), ytrain, 'VariableNames', {'Age_z','Salary_z','Purchased'});
+glm = fitglm(TblTrain, 'Purchased ~ Age_z + Salary_z', 'Distribution', 'binomial', 'Link', 'logit');
+
+TblTest = table(Xtest(:,1), Xtest(:,2), 'VariableNames', {'Age_z','Salary_z'});
+p_test_glm = predict(glm, TblTest);
+yhat_test_glm = p_test_glm >= 0.5;
+acc_glm = mean(yhat_test_glm == ytest);
+fprintf('fitglm test accuracy: %.4f\n', acc_glm);
+cm_glm = confusionmat(ytest, yhat_test_glm);
+disp('Confusion matrix (fitglm):'); disp(cm_glm);
+[fp_g, tp_g, th_g, auc_glm] = perfcurve(ytest, p_test_glm, 1);
+fprintf('fitglm AUC = %.4f\n', auc_glm);
+figure; plot(fp_g, tp_g, 'LineWidth',1.5); xlabel('False Positive Rate');
+ ylabel('True Positive Rate'); title('ROC Curve (fitglm)'); grid on;
+
+%% Decision boundary visualization
+x1range = linspace(min(X(:,1)) - 0.5, max(X(:,1)) + 0.5, 200);
+x2range = linspace(min(X(:,2)) - 0.5, max(X(:,2)) + 0.5, 200);
+[X1g, X2g] = meshgrid(x1range, x2range);
+Xgrid_b = [ones(numel(X1g),1), X1g(:), X2g(:)];
+Pgrid_manual = sigmoid(Xgrid_b * w);
+Pgrid_manual = reshape(Pgrid_manual, size(X1g));
+
+figure;
+contourf(X1g, X2g, Pgrid_manual, [0 0.5 1], 'LineColor','none'); hold on;
+pos = (y==1); neg = (y==0);
+scatter(X(pos,1), X(pos,2), 40, 'r', 'filled');
+scatter(X(neg,1), X(neg,2), 30, 'b');
+contour(X1g, X2g, Pgrid_manual, [0.5 0.5], 'k', 'LineWidth', 2);
+xlabel('Age (z-score)'); ylabel('EstimatedSalary (z-score)');
+title('Decision Boundary (Manual Model)');
+legend('p<0.5 region','Purchased=1','Purchased=0','Boundary');
+\end{lstlisting}
+
+
+% -------------------- MLP section --------------------
+\subsection{\textcolor{orange}{Problem statement and requirements}}
+You are given a regression dataset \(\{(\mathbf{x}^{(i)}, y^{(i)})\}_{i=1}^N\) with input vectors \(\mathbf{x}\in\mathbb{R}^d\) and scalar targets \(y\in\mathbb{R}\). Some features may have disparate scales (the minimal implementation below omits scaling per explicit user request).
+
+A fully connected MLP with one hidden layer of \(m\) \(\tanh\) units and scalar output is used. The network equations (single example) are:
+\[
+\begin{aligned}
+\mathbf{h} &= \phi\!\big(W^{(1)}\mathbf{x} + \mathbf{b}^{(1)}\big), \quad \phi=\tanh,\\
+\hat{y} &= {w^{(2)}}^\top \mathbf{h} + b^{(2)}.
+\end{aligned}
+\]
+The loss over the dataset is the mean squared error (MSE):
+\[
+L = \frac{1}{2N}\sum_{i=1}^N \big(\hat y^{(i)} - y^{(i)}\big)^2.
+\]
+
+\subsection{\textcolor{orange}{Notation and vectorized setup}}
+We use the following vectorized notation (columns = examples):
+\begin{itemize}
+  \item \(X \in \mathbb{R}^{d\times N}\): input matrix with columns \(\mathbf{x}^{(i)}\).
+  \item \(y \in \mathbb{R}^{1\times N}\): target row vector.
+  \item \(W^{(1)} \in \mathbb{R}^{m\times d}\), \(\mathbf{b}^{(1)}\in\mathbb{R}^{m\times 1}\).
+  \item \(Z = W^{(1)}X + \mathbf{b}^{(1)}\mathbf{1}_{1\times N}\in\mathbb{R}^{m\times N}\).
+  \item \(H = \phi(Z)=\tanh(Z)\in\mathbb{R}^{m\times N}\).
+  \item \(w^{(2)}\in\mathbb{R}^{m\times 1}\), \(b^{(2)}\in\mathbb{R}\).
+  \item \(\hat{y} = (w^{(2)})^\top H + b^{(2)}\mathbf{1}_{1\times N}\in\mathbb{R}^{1\times N}.\)
+  \item Error vector: \(e = \hat{y} - y \in \mathbb{R}^{1\times N}.\)
+\end{itemize}
+
+\subsection{\textcolor{orange}{Gradient derivation (compact matrix form)}}
+We compute gradients of \(L\) with respect to parameters \(w^{(2)}, b^{(2)}, W^{(1)}, \mathbf{b}^{(1)}\).
+
+\subsection*{Output layer}
+\[
+\begin{aligned}
+\frac{\partial L}{\partial w^{(2)}}
+&= \frac{1}{N}\, H\, e^\top \qquad\in\mathbb{R}^{m\times 1},\\[6pt]
+\frac{\partial L}{\partial b^{(2)}}
+&= \frac{1}{N}\sum_{i=1}^N e_i \qquad\in\mathbb{R}.
+\end{aligned}
+\]
+
+\subsection*{Hidden layer}
+Let the elementwise derivative of \(\tanh\) be \(\phi'(z) = 1 - \tanh(z)^2\).
+\[
+S = w^{(2)}\, e \in\mathbb{R}^{m\times N},
+\qquad
+D = S \odot \phi'(Z) = (w^{(2)} e) \odot (1 - H.^2).
+\]
+\[
+\frac{\partial L}{\partial W^{(1)}} = \frac{1}{N}\, D\, X^\top,\qquad
+\frac{\partial L}{\partial \mathbf{b}^{(1)}} = \frac{1}{N}\,D\,\mathbf{1}_{N\times 1}.
+\]
+
+\subsection{\textcolor{orange}{ MATLAB Code}}
+
+\begin{lstlisting}
+% mlp_regression_tanh.m
+% Regression with MLP (one hidden layer, tanh) — Minimal implementation
+
+clear; close all; clc;
+
+%% Hyperparameters
+d = 5; m = 10; N = 400; lr = 0.05; epochs = 1000; seed = 1;
+rng(seed);
+
+%% Create simple regression data (no feature scaling)
+X = randn(d, N);
+trueW = randn(1, d) * 0.5;
+yclean = trueW * X;
+y = yclean + 0.3 * randn(1, N);
+
+%% Initialize parameters
+params = initParams(d, m);
+
+%% Train
+[params, loss_history] = trainMLP(X, y, params, lr, epochs);
+
+%% Plot loss history
+figure;
+plot(1:length(loss_history), loss_history, 'LineWidth', 1.5);
+xlabel('Epoch'); ylabel('MSE Loss'); title('Training Loss');
+
+%% Predictions and parity plot
+yhat = predictMLP(X, params);
+figure;
+scatter(y, yhat, 20, 'filled');
+hold on; plot(min(y):0.1:max(y), min(y):0.1:max(y), 'k--');
+xlabel('True y'); ylabel('Predicted ^y'); title('Parity plot (train)');
+
+%% ---- Local functions ----
+function params = initParams(d, m)
+    scale = 1 / sqrt(d);
+    params.W1 = scale * randn(m, d);
+    params.b1 = zeros(m, 1);
+    params.w2 = scale * randn(m, 1);
+    params.b2 = 0;
+end
+
+function [params, loss_history] = trainMLP(X, y, params, lr, epochs)
+    N = size(X, 2);
+    loss_history = zeros(epochs, 1);
+    for ep = 1:epochs
+        [H, Z, yhat] = forwardMLP(X, params);
+        e = yhat - y;
+        loss = (1/(2*N)) * sum(e.^2);
+        loss_history(ep) = loss;
+
+        d_w2 = (1/N) * (H * e');
+        d_b2 = (1/N) * sum(e(:));
+
+        phi_prime = 1 - H.^2;
+        S = params.w2 * e;
+        D = S .* phi_prime;
+
+        d_W1 = (1/N) * (D * X');
+        d_b1 = (1/N) * sum(D, 2);
+
+        params.W1 = params.W1 - lr * d_W1;
+        params.b1 = params.b1 - lr * d_b1;
+        params.w2 = params.w2 - lr * d_w2;
+        params.b2 = params.b2 - lr * d_b2;
+    end
+end
+
+function [H, Z, yhat] = forwardMLP(X, params)
+    Z = params.W1 * X + params.b1 * ones(1, size(X,2));
+    H = tanh(Z);
+    yhat = (params.w2)' * H + params.b2 * ones(1, size(X,2));
+end
+
+function yhat = predictMLP(X, params)
+    [~, ~, yhat] = forwardMLP(X, params);
+end
+\end{lstlisting}
+
+\subsection{\textcolor{orange}{Function documentation (inputs \& outputs)}}
+\begin{description}
+  \item[\texttt{initParams(d,m)}] Inputs: \(d,m\). Output: \texttt{params} struct with fields \texttt{W1}, \texttt{b1}, \texttt{w2}, \texttt{b2}.
+  \item[\texttt{trainMLP(X,y,params,lr,epochs)}] Inputs: training matrices and hyperparams. Outputs: trained params and loss history vector.
+  \item[\texttt{forwardMLP(X,params)}] Inputs: \(X, params\). Outputs: \(H, Z, \hat y\).
+  \item[\texttt{predictMLP(X,params)}] Inputs: \(X, params\). Output: \(\hat y\).
+\end{description}
+
+
+
+% PartC_NeuralNetwork.tex  (paste into your main report)
+\subsection{\textcolor{orange}{Part C --- Neural Network Classifier}}
+\textbf{Goal:} Extend logistic regression to a shallow neural network: two input features $\rightarrow$ $H$ hidden units $\rightarrow$ one output.  
+The assignment sets $H=(\text{last digit of student ID} \bmod 3) + 2$. Replace the placeholder if you want to use your own last-digit.
+
+\subsection{\textcolor{orange}{Requirements implemented}}
+\begin{enumerate}
+  \item \textbf{Implementation:} manual forward and backward propagation implemented in MATLAB (vectorized), plus a built-in comparison using \texttt{patternnet}.
+  \item \textbf{Training:} batch gradient descent with the same train/val/test splits. Data normalized using z-score.
+  \item \textbf{Activation:} sigmoid activation for both hidden and output layers.
+  \item \textbf{Evaluation:} comparison of train/val/test accuracy (manual vs built-in), confusion matrices, ROC/AUC, and learning curves.
+\end{enumerate}
+
+\subsection{\textcolor{orange}{MATLAB script}}
+
+\begin{lstlisting}
+% (Full MATLAB script shown above in the chat — paste here the same code)
+% For brevity in the printed document, you can import the script or include the code listing.
+\end{lstlisting}
+
+\subsection{\textcolor{orange}{How the manual network }}
+\begin{itemize}
+  \item Input: $D=2$ features (Age, EstimatedSalary), normalized by z-score.
+  \item Hidden layer: $H$ sigmoid units (weights $W^{(1)}$ of size $D\times H$, biases $b^{(1)}$ of size $1\times H$).
+  \item Output: single sigmoid neuron (weights $W^{(2)}$ of size $H\times 1$, bias $b^{(2)}$ scalar).
+  \item Forward equations (vectorized, $n$ samples):
+    \[
+      Z^{(1)} = X W^{(1)} + \mathbf{1} {b^{(1)}},\quad
+      A^{(1)} = \sigma(Z^{(1)})
+    \]
+    \[
+      Z^{(2)} = A^{(1)} W^{(2)} + b^{(2)},\quad
+      \hat{y} = A^{(2)} = \sigma(Z^{(2)})
+    \]
+  \item Loss: binary cross-entropy
+    \[
+      L = -\frac{1}{n}\sum_{i=1}^n \left( y_i\log \hat{y}_i + (1-y_i)\log(1-\hat{y}_i) \right)
+    \]
+  \item Backprop (vectorized):
+    \[
+      dZ^{(2)} = \frac{A^{(2)}-y}{n},\quad dW^{(2)} = A^{(1)T} dZ^{(2)},\quad db^{(2)} = \sum dZ^{(2)}
+    \]
+    \[
+      dZ^{(1)} = (dZ^{(2)} {W^{(2)}}^T) \circ A^{(1)}\circ(1-A^{(1)}),\quad dW^{(1)} = X^T dZ^{(1)},\quad db^{(1)}=\sum dZ^{(1)}
+    \]
+\end{itemize}
+
+\subsection{\textcolor{orange}{ MATLAB functions used }}
+\begin{description}
+  \item[\texttt{readtable}] Load CSV into a \texttt{table} (input: filename). Output: table.
+  \item[\texttt{randperm}] Create randomized index permutation for splitting data.
+  \item[\texttt{sigmoid = @(z) 1./(1+exp(-z))}] defines the logistic activation.
+  \item[\texttt{confusionmat}] compute confusion matrix from true and predicted labels.
+  \item[\texttt{perfcurve}] compute ROC curve and AUC (inputs: true labels, predicted scores, positive label).
+  \item[\texttt{patternnet}] build a shallow feedforward network for classification (use \texttt{'traingd'} for gradient descent).
+  \item[\texttt{train(net,X,T)}] train neural network (inputs: features-by-samples, targets-by-samples).
+\end{description}
+
+
+\bigskip
+
+
+
+\vfill
+\noindent\textit{If you want the LaTeX to include compiled results (figures) or to split the code into separate \texttt{.m} files and show them as separate listings, I can provide that as well.}
+
+
+
+
+
+\end{document}
