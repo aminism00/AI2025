@@ -1,0 +1,149 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{geometry}
+\usepackage{array}
+
+\geometry{a4paper, margin=1in}
+
+\title{Q1 - Mamdani Fuzzy Controller Report}
+\author{Producer: MohammadAmin HorriFarahani \\ Student Number: [40216673]}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section{Problem Statement}
+We are given a pole-balancing controller with the following crisp inputs:
+\begin{itemize}
+    \item Pole angle $\theta = -1.5$
+    \item Angular velocity $\dot{\theta} = 2$
+\end{itemize}
+We must estimate the crisp control force $F^*$ using a Mamdani fuzzy inference system with Min-Max logic and Centroid defuzzification over discrete samples.
+
+\section{Step 1: Fuzzification}
+We compute the membership values for the inputs based on the piecewise-linear functions provided.
+
+\subsection{Input 1: $\theta = -1.5$}
+\begin{itemize}
+    \item $\mu_{\text{NEG}}(-1.5) = \frac{0 - (-1.5)}{2} = 0.75$
+    \item $\mu_{\text{ZERO}}(-1.5) = 1 - \frac{|-1.5|}{2} = 0.25$
+    \item $\mu_{\text{POS}}(-1.5) = 0$
+\end{itemize}
+
+\subsection{Input 2: $\dot{\theta} = 2$}
+\begin{itemize}
+    \item $\mu_{\text{NEG}}(2) = 0$
+    \item $\mu_{\text{ZERO}}(2) = 1 - \frac{|2|}{5} = 0.6$
+    \item $\mu_{\text{POS}}(2) = \frac{2}{5} = 0.4$
+\end{itemize}
+
+\section{Step 2: Rule Evaluation}
+We determine the firing strength $\alpha$ for each active rule using the MIN operator. The active antecedent terms are $\theta \in \{\text{NEG}, \text{ZERO}\}$ and $\dot{\theta} \in \{\text{ZERO}, \text{POS}\}$.
+
+\begin{enumerate}
+    \item \textbf{Rule 1:} IF $\theta$ is NEG AND $\dot{\theta}$ is ZERO THEN F is N.
+    \[ \alpha_1 = \min(0.75, 0.6) = 0.6 \]
+    
+    \item \textbf{Rule 2:} IF $\theta$ is NEG AND $\dot{\theta}$ is POS THEN F is Z.
+    \[ \alpha_2 = \min(0.75, 0.4) = 0.4 \]
+    
+    \item \textbf{Rule 3:} IF $\theta$ is ZERO AND $\dot{\theta}$ is ZERO THEN F is Z.
+    \[ \alpha_3 = \min(0.25, 0.6) = 0.25 \]
+    
+    \item \textbf{Rule 4:} IF $\theta$ is ZERO AND $\dot{\theta}$ is POS THEN F is P.
+    \[ \alpha_4 = \min(0.25, 0.4) = 0.25 \]
+\end{enumerate}
+
+\section{Step 3: Implication and Aggregation}
+We apply Min-clipping to the consequents and aggregate using Max.
+
+\begin{itemize}
+    \item Term \textbf{N}: Clipped at $\alpha = 0.6$.
+    \item Term \textbf{Z}: Clipped at $\max(0.4, 0.25) = 0.4$.
+    \item Term \textbf{P}: Clipped at $\alpha = 0.25$.
+\end{itemize}
+
+\[ \mu_{\text{agg}}(F) = \max \left( \min(\mu_N(F), 0.6), \min(\mu_Z(F), 0.4), \min(\mu_P(F), 0.25) \right) \]
+
+\section{Step 4: Defuzzification}
+We use the Riemann sum method over the sample points $F_i \in \{-16, -12, -8, -4, 0, 4, 8, 12, 16\}$.
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+$F_i$ & Calculations ($\max(\text{clipping})$) & $\mu_{\text{agg}}(F_i)$ & $\mu_{\text{agg}}(F_i) \cdot F_i$ \\
+\hline
+$-16$ & $\max(0, 0, 0)$ & 0 & 0 \\
+$-12$ & $\max(0.5, 0, 0)$ & 0.5 & $-6.0$ \\
+$-8$ & $\max(0.6, 0, 0)$ & 0.6 & $-4.8$ \\
+$-4$ & $\max(0.5, 0.4, 0)$ & 0.5 & $-2.0$ \\
+$0$ & $\max(0, 0.4, 0)$ & 0.4 & 0 \\
+$4$ & $\max(0, 0.4, 0.25)$ & 0.4 & $1.6$ \\
+$8$ & $\max(0, 0, 0.25)$ & 0.25 & $2.0$ \\
+$12$ & $\max(0, 0, 0.25)$ & 0.25 & $3.0$ \\
+$16$ & $\max(0, 0, 0)$ & 0 & 0 \\
+\hline
+\textbf{Total} & & $\sum = 2.9$ & $\sum = -6.2$ \\
+\hline
+\end{tabular}
+\end{center}
+
+\[ F^* \approx \frac{-6.2}{2.9} \approx -2.1379 \]
+
+\section{Conclusion}
+The estimated crisp control force is \textbf{-2.14}.
+
+\section{Problem Statement}
+We are tasked with comparing the crisp output of a Zero-Order Sugeno system and a Mamdani system given specific firing strengths and consequent parameters.
+
+\textbf{Given Firing Strengths:}
+\[ w_1 = 0.1, \quad w_2 = 0.2, \quad w_3 = 0.5 \]
+
+\section{Part (a): Sugeno (Zero-Order) Output}
+In a zero-order Sugeno system, the consequents are singletons (constants):
+\[ k_1 = 20, \quad k_2 = 50, \quad k_3 = 80 \]
+
+The crisp output is calculated using the \textbf{Weighted Average (WA)} formula:
+
+\[ z^*_{\text{Sugeno}} = \frac{\sum_{i=1}^{3} w_i k_i}{\sum_{i=1}^{3} w_i} \]
+
+\textbf{Step 1: Calculate Numerator}
+\[ \sum w_i k_i = (0.1 \times 20) + (0.2 \times 50) + (0.5 \times 80) = 2 + 10 + 40 = 52 \]
+
+\textbf{Step 2: Calculate Denominator}
+\[ \sum w_i = 0.1 + 0.2 + 0.5 = 0.8 \]
+
+\textbf{Step 3: Final Output}
+\[ z^*_{\text{Sugeno}} = \frac{52}{0.8} = \mathbf{65} \]
+
+\section{Part (b): Mamdani Output (Comparison)}
+For the Mamdani comparison, we use fuzzy set consequents centered at the same values ($c_i$) and apply the \textbf{Height Defuzzification} approximation (Weighted Centroid of Centers):
+\[ c_1 = 20, \quad c_2 = 50, \quad c_3 = 80 \]
+
+\[ z^*_{\text{Mamdani}} = \frac{\sum_{i=1}^{3} w_i c_i}{\sum_{i=1}^{3} w_i} \]
+
+Since the weights $w_i$ and the centers $c_i$ are identical to the Sugeno parameters:
+\[ z^*_{\text{Mamdani}} = \frac{52}{0.8} = \mathbf{65} \]
+
+\section{Part (c): Decision Making}
+\textbf{Comparison:} The outputs are \textbf{equal} ($65$) because the Height Defuzzification method mathematically reduces the Mamdani centroid calculation to a weighted average of centers, which matches the Sugeno formula exactly in this case.
+
+\textbf{When to choose which method?}
+
+\begin{enumerate}
+    \item \textbf{Select Mamdani if:}
+    \begin{itemize}
+        \item \textbf{Interpretability} is the priority. You need to model human expert knowledge where rules must be readable (e.g., "IF Temp is High THEN Fan is Fast").
+        \item The application requires capturing complex, non-linear input-output relationships that are best described linguistically.
+    \end{itemize}
+    
+    \item \textbf{Select Sugeno if:}
+    \begin{itemize}
+        \item \textbf{Computational Efficiency} is critical. The weighted average calculation is significantly faster than calculating the centroid of an arbitrary area.
+        \item You are using \textbf{optimization algorithms} (like genetic algorithms or neural networks) to tune the system parameters automatically (e.g., in ANFIS).
+        \item You need to integrate the system with standard PID control or linear control theory.
+    \end{itemize}
+\end{enumerate}
+
+\end{document}
