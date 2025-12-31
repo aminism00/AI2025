@@ -30,33 +30,16 @@ The model achieves state-of-the-art performance within just 10-20 epochs:
 -   **Loss Function:** Categorical Cross-Entropy
 -   **Optimizer:** Adam
 
-### Visualization
-| Accuracy Curve | Confusion Matrix |
-| :---: | :---: |
-| ![Accuracy Plot](https://via.placeholder.com/300x200?text=Accuracy+Plot) | ![CM](https://via.placeholder.com/300x200?text=Confusion+Matrix) |
-*(Note: Replace these placeholders with your actual exported images from Colab)*
 
----
 
 ## 💻 How to Run
-1.  **Clone the Repository:**
-    ```bash
-    git clone [https://github.com/your-username/traffic-sign-recognition.git](https://github.com/your-username/traffic-sign-recognition.git)
-    ```
-2.  **Open in Google Colab:**
+1.  **Open in Google Colab:**
     Upload the `.ipynb` file to your Colab environment.
-3.  **Dataset Setup:**
+2.  **Dataset Setup:**
     - Download the dataset from [Kaggle](https://www.kaggle.com/datasets/meowmeowmeowmeowmeow/gtsrb-german-traffic-sign).
     - Mount your Google Drive and update the file paths in the notebook.
-4.  **Train/Test:**
+3.  **Train/Test:**
     Run all cells to preprocess data, train the model, and evaluate results.
-
----
-
-## 🛠️ Challenges Solved
-* **Color Space Issues:** Fixed the common OpenCV BGR vs. RGB mismatch which significantly improved red-sign detection.
-* **Overfitting:** Successfully used Dropout layers and Max Pooling to ensure the model generalizes well to unseen real-world images.
-* **Dataset Imbalance:** Analyzed the distribution of 43 classes to ensure robust training.
 
 ---
 
