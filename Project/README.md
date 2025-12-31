@@ -51,9 +51,6 @@ The model was tested on random traffic sign images from the internet. It success
 ## 🎓 Author
 **Mohammad Amin Horri Farahani**
 * Artificial Intelligence Project
-* Mentors: Erfan Mohammadpour, Niki Mahdian, Mobin Rozati
 
 ---
 
-## 📜 License
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
